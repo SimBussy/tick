@@ -11,6 +11,7 @@ from .svrg import SVRG
 from .sdca import SDCA
 from .gfb import GFB
 from .adagrad import AdaGrad
+from .l_bgfs_b import LBFGSB
 
 __all__ = ["GD", "AGD", "BFGS", "SCPG", "SGD", "SVRG", "SDCA", "GFB",
-           "AdaGrad"]
+           "AdaGrad", "LBFGSB"]
