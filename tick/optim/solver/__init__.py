@@ -12,6 +12,7 @@ from .sdca import SDCA
 from .gfb import GFB
 from .adagrad import AdaGrad
 from .l_bgfs_b import LBFGSB
+from .newton import Newton
 
 __all__ = ["GD", "AGD", "BFGS", "SCPG", "SGD", "SVRG", "SDCA", "GFB",
-           "AdaGrad", "LBFGSB"]
+           "AdaGrad", "LBFGSB", "Newton"]
