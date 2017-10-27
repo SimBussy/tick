@@ -22,7 +22,6 @@ class Test(unittest.TestCase):
 
     def test_filter_non_positive_samples(self):
         features = [np.ones((2, 3)) * i for i in range(10)]
-        features_censored = features
         labels = [np.zeros((2, 1)) for _ in range(10)]
         censoring = np.full((10, 1), 2)
 
@@ -44,6 +43,12 @@ class Test(unittest.TestCase):
             np.testing.assert_array_equal(expect_lab[i], out_lab[i])
             self.assertGreater(expect_lab[i].sum(), 0)
 
+    def test_simulated_features(self):
+        sim = SimuSCCS(100, 10, 3, 2, None, 'multiple_exposures', verbose=False)
+        feat, n_samples = sim.simulate_features(100)
+        self.assertEqual(100, len(feat))
+        print(np.sum([1 for f in feat if f.sum() <= 0]))
+
     def test_simulation(self):
         def run_tests(n_cases, n_features, sparse, exposure_type, distribution,
                       time_drift):
@@ -58,6 +63,7 @@ class Test(unittest.TestCase):
             self.assertEqual(y[0].shape, (n_intervals,))
             self.assertEqual(c.shape, (n_cases,))
             self.assertEqual(coeffs.shape, (n_features * (n_lags + 1),))
+            self.assertEqual(np.sum([1 for f in X if f.sum() <= 0]), 0)  # TODO: same with X_c
 
         n_features = [1, 3]
         exposure_type = ["single_exposure", "multiple_exposures"]

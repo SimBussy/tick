@@ -9,6 +9,7 @@ from tick.preprocessing.longitudinal_features_lagger\
     import LongitudinalFeaturesLagger
 from tick.simulation import SimuHawkesExpKernels, SimuHawkesMulti
 from itertools import combinations
+from copy import deepcopy
 
 
 class SimuSCCS(Simu):
@@ -24,15 +25,15 @@ class SimuSCCS(Simu):
         # user defined or computed attributes
         '_hawkes_exp_kernel',
         '_coeffs',
-        '_time_drift'  # TODO: name here
+        '_time_drift'
     ]
 
     _attrinfos = {key: {'writable': False} for key in _const_attr}
         
     def __init__(self, n_cases, n_intervals, n_features, n_lags,
                  time_drift=None, exposure_type="single_exposure",
-                 distribution="multinomial", sparse=True, features_left_cut=0,
-                 censoring_prob=.7, censoring_scale=None,
+                 distribution="multinomial", sparse=True,
+                 censoring_prob=0, censoring_scale=None,
                  coeffs=None, hawkes_exp_kernels=None, n_correlations=0,
                  batch_size=None, seed=None, verbose=True,
                  ):
@@ -51,7 +52,7 @@ class SimuSCCS(Simu):
         self.distribution = distribution
 
         self._left_cut = 0
-        # self.left_cut = features_left_cut  # TODO property
+        # self.left_cut = features_left_cut  # TODO later : implementation + property
 
         self._censoring_prob = 0
         self.censoring_prob = censoring_prob
@@ -69,7 +70,7 @@ class SimuSCCS(Simu):
         # TODO later: add properties for these parameters
         self.n_correlations = n_correlations
         self.hawkes_exp_kernels = hawkes_exp_kernels
-        self._time_drift = None  # TODO: is property useful here ?
+        self._time_drift = None  # TODO later: is this property useful?
         self.time_drift = time_drift  # function(t), used only for the paper, allow to add a baseline
 
     def simulate(self):
@@ -115,11 +116,11 @@ class SimuSCCS(Simu):
         censoring = np.zeros((n_cases,), dtype="uint64")
         cases_count = 0
         while cases_count < n_cases:
-            _features, _censored_features, _outcomes, _censoring = \
+            _features, _censored_features, _outcomes, _censoring, _n_samples = \
                 self._simulate_batch()
 
-            # TODO later: Warning here if n_cases -> n_samples
-            n_new_cases = len(_outcomes)
+            # TODO later: Warning here if n_cases -> n_cases
+            n_new_cases = _n_samples
             c = cases_count
             cases_count += n_new_cases
             n = n_cases - c if cases_count >= n_cases else n_new_cases
@@ -134,15 +135,15 @@ class SimuSCCS(Simu):
     def _simulate_batch(self):
         """Simulate a batch of samples, each of which have ticked at least once.
         """
-        # TODO later: Warning doc if n_cases -> n_samples
-        _features = self._simulate_sccs_features(self.batch_size)
-        _censored_features = _features.copy()
+        # TODO later: Warning doc if n_cases -> n_cases
+        _features, _n_samples = self.simulate_features(self.batch_size)
+        _censored_features = deepcopy(_features)
         _outcomes = self.simulate_outcomes(_features)
-        _censoring = np.full((self.batch_size,), self.n_intervals,
+        _censoring = np.full((_n_samples,), self.n_intervals,
                              dtype="uint64")
         if self.censoring_prob:
             censored_idx = np.random.binomial(1, self.censoring_prob,
-                                              size=self.batch_size
+                                              size=_n_samples
                                               ).astype("bool")
             _censoring[censored_idx] -= np.random.poisson(
                 lam=self.censoring_scale, size=(censored_idx.sum(),)
@@ -155,24 +156,27 @@ class SimuSCCS(Simu):
                 self._filter_non_positive_samples(_features, _censored_features,
                                                   _outcomes, _censoring)
 
-        return _features, _censored_features, _outcomes, _censoring
+        return _features, _censored_features, _outcomes, _censoring, _n_samples
 
-    def _simulate_sccs_features(self, n_samples):
+    def simulate_features(self, n_samples):
         """Simulates features, either `single_exposure` or
          `multiple_exposures` exposures."""
         if self.exposure_type == "single_exposure":
-            features = self._sim_single_exposure_exposures()
+            features, n_samples = self._sim_single_exposure_exposures()
         elif self.exposure_type == "multiple_exposures":
             sim = self._sim_multiple_exposures_exposures
             features = [sim() for _ in range(n_samples)]
-        return features
+        return features, n_samples
 
     # We just keep it for the tests now
     # TODO later: need to be improved with Hawkes
     def _sim_multiple_exposures_exposures(self):
-        features = np.random.randint(2,
-                                     size=(self.n_intervals, self.n_features),
-                                     ).astype("float64")
+        features = np.zeros((self.n_intervals, self.n_features))
+        while features.sum() == 0:
+            # Make sure we do not generate empty feature matrix
+            features = np.random.randint(2,
+                                         size=(self.n_intervals, self.n_features),
+                                         ).astype("float64")
         if self.sparse:
             features = csr_matrix(features, dtype="float64")
         return features
@@ -185,7 +189,7 @@ class SimuSCCS(Simu):
         if self.hawkes_exp_kernels is None:
             np.random.seed(self.seed)
             decays = .002 * np.ones((self.n_features, self.n_features))
-            baseline = 0.001 * np.random.random(self.n_features)
+            baseline = 4 * np.random.random(self.n_features) / self.n_intervals
             mult = np.random.random(self.n_features)
             adjacency = mult * np.eye(self.n_features)
 
@@ -202,7 +206,7 @@ class SimuSCCS(Simu):
                 adjacency=adjacency, decays=decays, baseline=baseline,
                 verbose=False, seed=self.seed))  # TODO: we should be able to plot Hawkes adjacency
 
-        self.hawkes_exp_kernels.adjust_spectral_radius(.1)  # TODO later: allow to change this parameter
+        self.hawkes_exp_kernels.adjust_spectral_radius(.9)  # TODO later: allow to change this parameter
         hawkes = SimuHawkesMulti(self.hawkes_exp_kernels,
                                  n_simulations=self.n_cases)
 
@@ -212,15 +216,21 @@ class SimuSCCS(Simu):
         self.hawkes_exp_kernels.track_intensity(dt)
         hawkes.simulate()
 
+        # TODO later: using -1 here is hack. Do something better.
         features = [[np.min(np.floor(f)) if len(f) > 0 else -1
                      for f in patient_events]
                     for patient_events in hawkes.timestamps]
 
         features = [self.to_coo(feat, (run_time, self.n_features)) for feat in
                     features]
-        # TODO: add check to make sure patients have at least one exposure?
 
-        return features
+        # Make sure patients have at least one exposure?
+        exposures_filter = itemgetter(*[i for i, f in enumerate(features)
+                                        if f.sum() > 0])
+        features = exposures_filter(features)
+        n_samples = len(features)
+
+        return features, n_samples
 
     def simulate_outcomes(self, features):
         features, _, _ = LongitudinalFeaturesLagger(n_lags=self.n_lags).\

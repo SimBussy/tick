@@ -54,9 +54,9 @@ class ModelSCCSTest(unittest.TestCase):
 
     def test_grad_loss_consistency(self):
         """Test longitudinal multinomial model gradient properties."""
-        sim = SimuSCCS(500, 36, 3, 9, None, True, "infinite", seed=42,
+        sim = SimuSCCS(500, 36, 3, 9, None, "single_exposure", seed=42,
                        verbose=False)
-        X, y, censoring, coeffs = sim.simulate()
+        _, X, y, censoring, coeffs = sim.simulate()
         X, _, _ = LongitudinalFeaturesLagger(n_lags=9) \
             .fit_transform(X, censoring)
         model = ModelSCCS(n_intervals=36, n_lags=9)\
@@ -90,12 +90,12 @@ class ModelSCCSTest(unittest.TestCase):
     def test_convergence_with_lags(self):
         """Test longitudinal multinomial model convergence."""
         n_intervals = 10
-        n_lags = 3
-        n_samples = 5000
-        n_features = 3
+        n_lags = 2
+        n_samples = 800
+        n_features = 2
         sim = SimuSCCS(n_samples, n_intervals, n_features, n_lags, None,
-                       True, "short", seed=42, verbose=False)
-        X, y, censoring, coeffs = sim.simulate()
+                       "multiple_exposures", seed=42)
+        _, X, y, censoring, coeffs = sim.simulate()
         X, _, _ = LongitudinalFeaturesLagger(n_lags=n_lags) \
             .fit_transform(X, censoring)
         model = ModelSCCS(n_intervals=n_intervals,
@@ -109,11 +109,11 @@ class ModelSCCSTest(unittest.TestCase):
         """Test longitudinal multinomial model convergence."""
         n_intervals = 10
         n_lags = 0
-        n_samples = 3000
-        n_features = 3
-        sim = SimuSCCS(n_samples, n_intervals, n_features, n_lags, None, True,
-                       "short", seed=42, verbose=False)
-        X, y, censoring, coeffs = sim.simulate()
+        n_samples = 600
+        n_features = 2
+        sim = SimuSCCS(n_samples, n_intervals, n_features, n_lags, None,
+                       "multiple_exposures", seed=42, verbose=False)
+        _, X, y, censoring, coeffs = sim.simulate()
         X, _, _ = LongitudinalFeaturesLagger(n_lags=n_lags) \
             .fit_transform(X, censoring)
         model = ModelSCCS(n_intervals=n_intervals,

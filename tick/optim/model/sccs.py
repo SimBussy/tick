@@ -41,7 +41,7 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
         row c - 1 of the corresponding matrix. The last n_intervals - c rows
         are then set to 0.
 
-    n_samples : `int` (read-only)
+    n_cases : `int` (read-only)
         Number of samples
 
     n_features : `int` (read-only)
@@ -87,7 +87,7 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
         self.features = None
         self.censoring = None
         self.n_features = None
-        self.n_samples = None
+        self.n_cases = None
 
     def fit(self, features, labels, censoring=None):
         """Set the data into the model object.
@@ -152,13 +152,13 @@ class ModelSCCS(ModelFirstOrder, ModelLipschitz):
         else:
             self._set("n_features", int(n_coeffs / (n_lags + 1)))
         self._set("n_cases", len(features))
-        if len(labels) != self.n_samples:
+        if len(labels) != self.n_cases:
             raise ValueError("Features and labels lists should have the same\
              length.")
         if censoring is None:
-            censoring = np.full(self.n_samples, self.n_intervals,
+            censoring = np.full(self.n_cases, self.n_intervals,
                                 dtype="uint64")
-        censoring = check_censoring_consistency(censoring, self.n_samples)
+        censoring = check_censoring_consistency(censoring, self.n_cases)
         features = check_longitudinal_features_consistency(features,
                                                            (n_intervals,
                                                             n_coeffs),

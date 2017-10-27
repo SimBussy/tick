@@ -15,7 +15,8 @@ class Test(InferenceTest):
         sim = SimuSCCS(n_cases=500, n_intervals=10, n_features=n_features,
                        n_lags=self.n_lags, verbose=False, seed=self.seed,
                        coeffs=self.coeffs)
-        self.features, self.labels, self.censoring, self.coeffs = sim.simulate()
+        _, self.features, self.labels, self.censoring, self.coeffs =\
+            sim.simulate()
 
     def test_LearnerSCCS_coefficient_groups(self):
         coeffs = np.ones((4, 5))
@@ -38,8 +39,8 @@ class Test(InferenceTest):
         lrn = LearnerSCCS(n_lags=self.n_lags, strength=(0, 0),
                           verbose=True, penalty="None",
                           feature_products=True)
-        X, y, c = lrn._preprocess_data(self.features, self.labels,
-                                       self.censoring)
+        features, y, c = lrn._preprocess_data(self.features, self.labels,
+                                                 self.censoring)
         # TODO: Check on small dummy data that preprocessing is working
         # TODO: fix feature products test
         pass
@@ -48,10 +49,10 @@ class Test(InferenceTest):
         # TODO: a case with infinite features
         seed = 42
         n_lags = 2
-        sim = SimuSCCS(n_cases=500, n_intervals=7, n_features=2,
+        sim = SimuSCCS(n_cases=800, n_intervals=10, n_features=2,
                        n_lags=n_lags, verbose=False, seed=seed,
-                       exposure_type='short')
-        features, labels, censoring, coeffs = sim.simulate()
+                       exposure_type='multiple_exposures')
+        features, _, labels, censoring, coeffs = sim.simulate()
         lrn = LearnerSCCS(n_lags=n_lags, penalty="None", tol=0,
                           max_iter=10, verbose=False, strength=(0, 0),
                           random_state=seed, feature_type='short')
